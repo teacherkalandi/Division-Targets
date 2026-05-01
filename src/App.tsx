@@ -267,19 +267,19 @@ export default function App() {
           <div className="flex bg-slate-100 p-1 rounded-xl">
             <button 
               onClick={() => setView('subdiv')}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${view === 'subdiv' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${view === 'subdiv' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Sub-Division Review
             </button>
             <button 
               onClick={() => setView('division')}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${view === 'division' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${view === 'division' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Division Summary
             </button>
             <button 
               onClick={() => setView('monthly')}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${view === 'monthly' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${view === 'monthly' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Monthly Targets
             </button>
@@ -290,7 +290,7 @@ export default function App() {
               <label className="font-bold text-slate-500 uppercase text-[10px] tracking-widest">Select Sub-Division:</label>
               <div className="relative min-w-[200px]">
                 <select 
-                  className="w-full appearance-none bg-slate-50 border border-slate-300 text-slate-800 py-2.5 pl-4 pr-10 rounded-lg font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  className="w-full appearance-none bg-slate-50 border border-slate-300 text-slate-800 py-2.5 pl-4 pr-10 rounded-lg font-bold focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer"
                   value={currentSubDiv}
                   onChange={(e) => setCurrentSubDiv(e.target.value)}
                 >
@@ -314,7 +314,7 @@ export default function App() {
           </button>
           <button 
             onClick={() => window.print()}
-            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg shadow transition flex items-center gap-2"
+            className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow transition flex items-center gap-2"
           >
             <Printer size={18} /> Print Slide
           </button>
@@ -325,13 +325,13 @@ export default function App() {
         
         {view === 'subdiv' ? (
           <div>
-            <div className="mb-10 border-b-4 border-slate-900 pb-6 flex flex-col md:flex-row justify-between items-end gap-2">
+            <div className="mb-10 border-b-4 border-red-600 pb-6 flex flex-col md:flex-row justify-between items-end gap-2">
               <div>
-                <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tight leading-none mb-2">Revenue Target</h2>
-                <p className="text-2xl text-blue-600 font-bold uppercase tracking-wide">Sub-Division: {currentSubDiv}</p>
+                <h2 className="text-4xl font-black text-red-600 uppercase tracking-tight leading-none mb-2">Revenue Target</h2>
+                <p className="text-2xl text-slate-900 font-bold uppercase tracking-wide">Sub-Division: {currentSubDiv}</p>
               </div>
               <div className="text-right">
-                 <div className="bg-slate-900 text-white px-4 py-1.5 rounded-md text-xs font-black uppercase mb-1">Fiscal Year 2026-27</div>
+                 <div className="bg-red-600 text-white px-4 py-1.5 rounded-md text-xs font-black uppercase mb-1">Fiscal Year 2026-27</div>
                  <div className="text-emerald-600 font-black text-sm uppercase tracking-widest">₹ In Lakhs</div>
               </div>
             </div>
@@ -340,19 +340,19 @@ export default function App() {
               <div className="space-y-12">
                 <div>
                   <h3 className="font-black text-slate-800 text-lg uppercase mb-4 flex items-center gap-2">
-                    <span className="bg-blue-600 w-2 h-6 inline-block"></span>
+                    <span className="bg-red-600 w-2 h-6 inline-block"></span>
                     I. Office Category-wise Distribution
                   </h3>
                   <div className="overflow-x-auto rounded-lg border border-slate-300">
                     <table className="w-full border-collapse">
                       <thead>
-                        <tr className="bg-slate-900 text-white">
+                        <tr className="bg-red-600 text-white">
                           <th className="p-4 text-left font-bold uppercase tracking-wider">Office Type</th>
                           <th className="p-4 text-center font-bold uppercase">Parcel</th>
                           <th className="p-4 text-center font-bold uppercase">Mail Ops</th>
                           <th className="p-4 text-center font-bold uppercase">IR & GB</th>
                           <th className="p-4 text-center font-bold uppercase">CCS</th>
-                          <th className="p-4 text-center font-bold uppercase bg-slate-800">Total</th>
+                          <th className="p-4 text-center font-bold uppercase bg-red-700">Total</th>
                         </tr>
                       </thead>
                       <tbody className="text-sm">
@@ -372,13 +372,13 @@ export default function App() {
                             </tr>
                           );
                         })}
-                        <tr className="bg-blue-50 font-black text-slate-900 border-t-2 border-slate-400">
-                          <td className="p-4 text-center uppercase tracking-widest text-blue-800">Grand Total</td>
+                        <tr className="bg-amber-50 font-black text-red-700 border-t-2 border-red-200">
+                          <td className="p-4 text-center uppercase tracking-widest ">Grand Total</td>
                           <td className="p-4 text-center font-mono">{colTotals.Parcel.toFixed(2)}</td>
                           <td className="p-4 text-center font-mono">{colTotals.MailOps.toFixed(2)}</td>
                           <td className="p-4 text-center font-mono">{colTotals.IRGB.toFixed(2)}</td>
                           <td className="p-4 text-center font-mono">{colTotals.CCS.toFixed(2)}</td>
-                          <td className="p-4 text-center text-xl text-blue-700 font-black font-mono">{colTotals.Grand.toFixed(2)}</td>
+                          <td className="p-4 text-center text-xl font-black font-mono">{colTotals.Grand.toFixed(2)}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -388,7 +388,7 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
                   <div>
                     <h3 className="font-black text-slate-800 text-lg uppercase mb-4 flex items-center gap-2">
-                      <span className="bg-emerald-500 w-2 h-6 inline-block"></span>
+                      <span className="bg-amber-500 w-2 h-6 inline-block"></span>
                       II. Performance Growth Plan
                     </h3>
                     <div className="rounded-lg border border-slate-300 overflow-hidden">
@@ -411,11 +411,11 @@ export default function App() {
                             <tr key={row.key} className={row.bold ? "bg-slate-200 font-black" : "bg-white border-b border-slate-200"}>
                               <td className="p-3 pl-5 text-slate-700 text-xs font-bold uppercase">{row.label}</td>
                               <td className="p-3 text-center font-mono text-slate-900">{row.val.toFixed(2)}</td>
-                              <td className="p-3 text-center bg-blue-50/30 print:bg-transparent">
+                              <td className="p-3 text-center bg-red-50/30 print:bg-transparent">
                                 <div className="flex items-center justify-center gap-1">
                                   <input 
                                     type="number" 
-                                    className="w-12 text-center bg-transparent focus:outline-none border-b-2 border-blue-400 font-bold"
+                                    className="w-12 text-center bg-transparent focus:outline-none border-b-2 border-red-400 font-bold"
                                     value={subDivIncreases[row.key] || ''}
                                     placeholder="0"
                                     onChange={(e) => handleIncreaseChange(row.key, e.target.value)}
@@ -431,7 +431,7 @@ export default function App() {
 
                   <div className="space-y-4">
                      <h3 className="font-black text-slate-800 text-lg uppercase flex items-center gap-2">
-                        <span className="bg-slate-400 w-2 h-6 inline-block"></span>
+                        <span className="bg-amber-400 w-2 h-6 inline-block"></span>
                         Operational Summary
                      </h3>
                      <div className="bg-slate-900 p-6 rounded-2xl text-slate-300 text-xs space-y-4 shadow-inner">
@@ -459,13 +459,13 @@ export default function App() {
           </div>
         ) : view === 'division' ? (
           <div>
-            <div className="mb-10 border-b-4 border-slate-900 pb-6 flex flex-col md:flex-row justify-between items-end gap-2">
+            <div className="mb-10 border-b-4 border-red-600 pb-6 flex flex-col md:flex-row justify-between items-end gap-2">
               <div>
-                <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tight leading-none mb-2">Division Revenue Summary</h2>
-                <p className="text-2xl text-blue-600 font-bold uppercase tracking-wide">Comprehensive Target View</p>
+                <h2 className="text-4xl font-black text-red-600 uppercase tracking-tight leading-none mb-2">Division Revenue Summary</h2>
+                <p className="text-2xl text-slate-900 font-bold uppercase tracking-wide">Comprehensive Target View</p>
               </div>
               <div className="text-right">
-                 <div className="bg-slate-900 text-white px-4 py-1.5 rounded-md text-xs font-black uppercase mb-1">Fiscal Year 2026-27</div>
+                 <div className="bg-red-600 text-white px-4 py-1.5 rounded-md text-xs font-black uppercase mb-1">Fiscal Year 2026-27</div>
                  <div className="text-emerald-600 font-black text-sm uppercase tracking-widest">₹ In Lakhs</div>
               </div>
             </div>
@@ -473,13 +473,13 @@ export default function App() {
             <div className="overflow-x-auto rounded-lg border border-slate-300 mb-12">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-slate-900 text-white">
+                  <tr className="bg-red-600 text-white">
                     <th className="p-4 text-left font-bold uppercase tracking-wider">Name of Sub Dvn</th>
                     <th className="p-4 text-center font-bold uppercase">Parcel</th>
                     <th className="p-4 text-center font-bold uppercase">Mail Ops</th>
                     <th className="p-4 text-center font-bold uppercase">IR & GB</th>
                     <th className="p-4 text-center font-bold uppercase">CCS</th>
-                    <th className="p-4 text-center font-bold uppercase bg-slate-800">Total</th>
+                    <th className="p-4 text-center font-bold uppercase bg-red-700">Total</th>
                   </tr>
                 </thead>
                 <tbody className="text-sm">
@@ -493,13 +493,13 @@ export default function App() {
                       <td className="p-4 text-center font-black bg-slate-100 text-slate-900 font-mono">{row.total.toFixed(2)}</td>
                     </tr>
                   ))}
-                  <tr className="bg-blue-50 font-black text-slate-900 border-t-2 border-slate-400 text-base">
-                    <td className="p-4 text-center uppercase tracking-widest text-blue-800">Grand Total</td>
+                  <tr className="bg-amber-50 font-black text-red-700 border-t-2 border-red-200 text-base">
+                    <td className="p-4 text-center uppercase tracking-widest">Grand Total</td>
                     <td className="p-4 text-center font-mono">{divisionData.grand.Parcel.toFixed(2)}</td>
                     <td className="p-4 text-center font-mono">{divisionData.grand.MailOps.toFixed(2)}</td>
                     <td className="p-4 text-center font-mono">{divisionData.grand.IRGB.toFixed(2)}</td>
                     <td className="p-4 text-center font-mono">{divisionData.grand.CCS.toFixed(2)}</td>
-                    <td className="p-4 text-center text-2xl text-blue-700 font-black font-mono">{divisionData.grand.total.toFixed(2)}</td>
+                    <td className="p-4 text-center text-2xl font-black font-mono">{divisionData.grand.total.toFixed(2)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -507,40 +507,40 @@ export default function App() {
 
             <div className="bg-slate-50 p-8 rounded-2xl border border-slate-200">
                <h3 className="font-black text-slate-800 text-lg uppercase mb-6 flex items-center gap-2">
-                  <span className="bg-slate-400 w-2 h-6 inline-block"></span>
+                  <span className="bg-amber-500 w-2 h-6 inline-block"></span>
                   Division Highlights
                </h3>
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                  <DivStat label="Leading Sub-Division" value={divisionData.rows.reduce((a, b) => a.total > b.total ? a : b, {name: 'N/A', total: 0}).name} color="blue" />
-                  <DivStat label="Highest Parcel Revenue" value={divisionData.rows.reduce((a, b) => a.Parcel > b.Parcel ? a : b, {name: 'N/A', Parcel: 0}).name} color="emerald" />
-                  <DivStat label="Revenue Efficiency" value="98.2%" color="purple" />
+                  <DivStat label="Leading Sub-Division" value={divisionData.rows.reduce((a, b) => a.total > b.total ? a : b, {name: 'N/A', total: 0}).name} color="red" />
+                  <DivStat label="Highest Parcel Revenue" value={divisionData.rows.reduce((a, b) => a.Parcel > b.Parcel ? a : b, {name: 'N/A', Parcel: 0}).name} color="amber" />
+                  <DivStat label="Revenue Efficiency" value="98.2%" color="emerald" />
                   <DivStat label="Total Operational Units" value="238" color="orange" />
                </div>
             </div>
           </div>
         ) : (
           <div>
-            <div className="mb-10 border-b-4 border-slate-900 pb-6 flex flex-col md:flex-row justify-between items-end gap-2">
+            <div className="mb-10 border-b-4 border-red-600 pb-6 flex flex-col md:flex-row justify-between items-end gap-2">
               <div className="flex-1">
-                <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tight leading-none mb-2">Monthly Targets Vertical-wise</h2>
+                <h2 className="text-4xl font-black text-red-600 uppercase tracking-tight leading-none mb-2">Monthly Targets Vertical-wise</h2>
                 <div className="flex items-center gap-4">
-                  <p className="text-2xl text-blue-600 font-bold uppercase tracking-wide">
+                  <p className="text-2xl text-slate-900 font-bold uppercase tracking-wide">
                     Level: {monthlyLevel === 'division' ? 'Entire Division' : `Sub-Division: ${currentSubDiv}`}
                   </p>
                   <div className="flex bg-slate-100 p-1 rounded-lg print:hidden">
                     <button 
                       onClick={() => setMonthlyLevel('division')}
-                      className={`px-3 py-1 rounded text-[10px] font-black uppercase ${monthlyLevel === 'division' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
+                      className={`px-3 py-1 rounded text-[10px] font-black uppercase ${monthlyLevel === 'division' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400'}`}
                     >Division</button>
                     <button 
                       onClick={() => setMonthlyLevel('subdiv')}
-                      className={`px-3 py-1 rounded text-[10px] font-black uppercase ${monthlyLevel === 'subdiv' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
+                      className={`px-3 py-1 rounded text-[10px] font-black uppercase ${monthlyLevel === 'subdiv' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400'}`}
                     >Sub-Div</button>
                   </div>
                 </div>
               </div>
               <div className="text-right">
-                 <div className="bg-slate-900 text-white px-4 py-1.5 rounded-md text-xs font-black uppercase mb-1">Fiscal Year 2026-27</div>
+                 <div className="bg-red-600 text-white px-4 py-1.5 rounded-md text-xs font-black uppercase mb-1">Fiscal Year 2026-27</div>
                  <div className="text-emerald-600 font-black text-sm uppercase tracking-widest">₹ In Lakhs</div>
               </div>
             </div>
@@ -548,7 +548,7 @@ export default function App() {
             <div className="overflow-x-auto rounded-lg border border-slate-300 mb-8">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-slate-900 text-white">
+                  <tr className="bg-red-600 text-white">
                     <th className="p-4 text-left font-bold uppercase tracking-wider">Month</th>
                     <th className="p-4 text-center font-bold uppercase">Parcel</th>
                     <th className="p-4 text-center font-bold uppercase">Mail Ops</th>
@@ -560,7 +560,7 @@ export default function App() {
                         <th className="p-4 text-center font-bold uppercase">PLI/RPLI</th>
                       </>
                     )}
-                    <th className="p-4 text-center font-bold uppercase bg-slate-800">Total</th>
+                    <th className="p-4 text-center font-bold uppercase bg-red-700">Total</th>
                   </tr>
                 </thead>
                 <tbody className="text-sm">
@@ -573,15 +573,15 @@ export default function App() {
                       <td className="p-4 text-center border-r border-slate-200 font-mono italic">{row.CCS.toFixed(3)}</td>
                       {monthlyLevel === 'division' && (
                         <>
-                          <td className="p-4 text-center border-r border-slate-200 font-mono font-bold text-blue-700">{row.POSB.toFixed(2)}</td>
+                          <td className="p-4 text-center border-r border-slate-200 font-mono font-bold text-red-600">{row.POSB.toFixed(2)}</td>
                           <td className="p-4 text-center border-r border-slate-200 font-mono font-bold text-emerald-700">{row.PLI.toFixed(2)}</td>
                         </>
                       )}
                       <td className="p-4 text-center font-black bg-slate-100 text-slate-900 font-mono">{row.total.toFixed(3)}</td>
                     </tr>
                   ))}
-                  <tr className="bg-blue-50 font-black text-slate-900 border-t-2 border-slate-400">
-                    <td className="p-4 text-center uppercase tracking-widest text-blue-800">Total Year</td>
+                  <tr className="bg-amber-50 font-black text-red-700 border-t-2 border-red-200">
+                    <td className="p-4 text-center uppercase tracking-widest">Total Year</td>
                     <td className="p-4 text-center font-mono">{monthlyData.grand.Parcel.toFixed(3)}</td>
                     <td className="p-4 text-center font-mono">{monthlyData.grand.MailOps.toFixed(3)}</td>
                     <td className="p-4 text-center font-mono">{monthlyData.grand.IRGB.toFixed(3)}</td>
@@ -592,7 +592,7 @@ export default function App() {
                         <td className="p-4 text-center font-mono">{monthlyData.grand.PLI.toFixed(2)}</td>
                       </>
                     )}
-                    <td className="p-4 text-center text-xl text-blue-700 font-black font-mono">{monthlyData.grand.total.toFixed(3)}</td>
+                    <td className="p-4 text-center text-xl font-black font-mono">{monthlyData.grand.total.toFixed(3)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -619,13 +619,13 @@ export default function App() {
 
 function DivStat({ label, value, color }: { label: string, value: string, color: string }) {
   const colors: any = {
-    blue: "text-blue-600 bg-blue-50",
-    emerald: "text-emerald-600 bg-emerald-50",
-    purple: "text-purple-600 bg-purple-50",
-    orange: "text-orange-600 bg-orange-50"
+    red: "text-red-600 bg-red-50 border-red-100",
+    amber: "text-amber-600 bg-amber-50 border-amber-100",
+    emerald: "text-emerald-600 bg-emerald-50 border-emerald-100",
+    orange: "text-orange-600 bg-orange-50 border-orange-100"
   };
   return (
-    <div className={`p-4 rounded-xl border border-slate-200 ${colors[color]}`}>
+    <div className={`p-4 rounded-xl border ${colors[color] || colors.red}`}>
       <p className="text-[9px] font-black uppercase tracking-widest mb-1 opacity-70">{label}</p>
       <p className="text-lg font-black uppercase tracking-tight">{value}</p>
     </div>
