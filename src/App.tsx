@@ -4,12 +4,9 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Upload, Printer, ChevronDown, FileSpreadsheet, LayoutDashboard, Info, ExternalLink, CheckCircle2, RefreshCw, Download } from 'lucide-react';
+import { Upload, ChevronDown, FileSpreadsheet, LayoutDashboard, Info, ExternalLink, CheckCircle2, RefreshCw, Search } from 'lucide-react';
 import { ProcessedRevenueData, RevenueCategories, SubDivisionData } from './types';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-import html2canvas from 'html2canvas';
 
 const categories = ["HO", "MDG", "Delivery S.O", "Non Delivery S.O", "BO"];
 
@@ -100,11 +97,19 @@ const NON_DELIVERY_OFFICES = [
 ];
 
 export default function App() {
-  const [view, setView] = useState<'subdiv' | 'division' | 'monthly'>('subdiv');
+  const [view, setView] = useState<'subdiv' | 'division' | 'monthly' | 'target-details'>('subdiv');
   const [processedData, setProcessedData] = useState<ProcessedRevenueData>(initialMockData);
+  const [officeWiseData, setOfficeWiseData] = useState<{
+    Parcel: any[];
+    MailOps: any[];
+    IRGB: any[];
+    CCS: any[];
+  }>({ Parcel: [], MailOps: [], IRGB: [], CCS: [] });
+  const [selectedVertical, setSelectedVertical] = useState<string | null>(null);
   const [increases, setIncreases] = useState<Record<string, Record<string, number>>>({});
   const [currentSubDiv, setCurrentSubDiv] = useState(Object.keys(initialMockData)[0]);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [subDivSearch, setSubDivSearch] = useState('');
   const [monthlyLevel, setMonthlyLevel] = useState<'division' | 'subdiv'>('division');
 
   const parseValue = (val: any) => {
@@ -117,6 +122,11 @@ export default function App() {
 
   const formatVal = (val: number, precision: number = 2) => {
     return val.toFixed(precision);
+  };
+
+  const formatRupeeStr = (lakhs: number) => {
+    const rupees = Math.round(lakhs * 100000);
+    return new Intl.NumberFormat('en-IN').format(rupees);
   };
 
   const categorizeOffice = (officeId: string, officeName: string, typeStr: string) => {
@@ -144,6 +154,7 @@ export default function App() {
       const raw = await response.json();
       
       const newData: ProcessedRevenueData = {};
+      const newOfficeWise = { Parcel: [] as any[], MailOps: [] as any[], IRGB: [] as any[], CCS: [] as any[] };
 
       const initDiv = (div: string) => {
         const d = div.trim().toUpperCase();
@@ -166,10 +177,35 @@ export default function App() {
           if (!row[4]) return;
           const div = initDiv(row[4]);
           const type = categorizeOffice(row[2], row[1], row[3]);
-          const parentVal = (parseValue(row[5]) + parseValue(row[6]) + parseValue(row[7])) / 100000;
-          const boVal = (parseValue(row[9]) + parseValue(row[10])) / 100000;
-          newData[div][type].Parcel += parentVal;
-          newData[div]['BO'].Parcel += boVal;
+          
+          const retailVal = parseValue(row[5]) / 100000;
+          const contractualVal = parseValue(row[6]) / 100000;
+          const speedPostVal = parseValue(row[7]) / 100000;
+          const noOfBOs = parseValue(row[8]);
+          const boIPP = parseValue(row[9]) / 100000;
+          const boSPP = parseValue(row[10]) / 100000;
+          const totalVal = parseValue(row[11]) / 100000;
+
+          newData[div][type].Parcel += (retailVal + contractualVal + speedPostVal);
+          newData[div]['BO'].Parcel += (boIPP + boSPP);
+          
+          if (totalVal > 0) {
+            newOfficeWise.Parcel.push({ 
+              sl: row[0],
+              id: row[2],
+              name: row[1], 
+              subDiv: div, 
+              category: type,
+              type: row[3],
+              target: totalVal,
+              retail: retailVal,
+              contractual: contractualVal,
+              speedPost: speedPostVal,
+              noOfBOs,
+              boIPP,
+              boSPP
+            });
+          }
         });
       }
 
@@ -186,6 +222,40 @@ export default function App() {
           newData[div][type].MailOps += parentMail;
           newData[div][type].IRGB += parentIRGB;
           newData[div]['BO'].MailOps += boMail;
+          
+          if (parentMail > 0) {
+            newOfficeWise.MailOps.push({ 
+              sl: row[0],
+              id: row[2],
+              name: row[1], 
+              subDiv: div, 
+              category: type,
+              type: row[3],
+              target: parentMail 
+            });
+          }
+          if (parentIRGB > 0) {
+            newOfficeWise.IRGB.push({ 
+              sl: row[0],
+              id: row[2],
+              name: row[1], 
+              subDiv: div, 
+              category: type,
+              type: row[3],
+              target: parentIRGB 
+            });
+          }
+          if (boMail > 0) {
+            newOfficeWise.MailOps.push({ 
+              sl: row[0],
+              id: `${row[2]}-BO`,
+              name: `${row[1]} (BO)`, 
+              subDiv: div, 
+              category: 'BO',
+              type: 'BO',
+              target: boMail 
+            });
+          }
         });
       }
 
@@ -196,14 +266,39 @@ export default function App() {
           if (!row[4]) return;
           const div = initDiv(row[4]);
           const type = categorizeOffice(row[2], row[1], row[3]);
+          
+          const aadhaarTxn = parseValue(row[5]);
+          const aadhaarRev = parseValue(row[6]) / 100000;
+          const popskTxn = parseValue(row[7]);
+          const popskRev = parseValue(row[8]) / 100000;
+          const retail = parseValue(row[9]) / 100000;
           const totalCCS = parseValue(row[10]) / 100000;
+          
           newData[div][type].CCS += totalCCS;
+          
+          if (totalCCS > 0) {
+            newOfficeWise.CCS.push({ 
+              sl: row[0],
+              id: row[2],
+              name: row[1], 
+              subDiv: div, 
+              category: type,
+              type: row[3],
+              target: totalCCS,
+              aadhaarTxn,
+              aadhaarRev,
+              popskTxn,
+              popskRev,
+              retail
+            });
+          }
         });
       }
 
       const subDivs = Object.keys(newData).sort();
       if (subDivs.length > 0) {
         setProcessedData(newData);
+        setOfficeWiseData(newOfficeWise);
         if (!newData[currentSubDiv]) {
           setCurrentSubDiv(subDivs[0]);
         }
@@ -430,199 +525,41 @@ export default function App() {
     XLSX.writeFile(wb, fileName);
   };
 
-  const handleDownloadPDF = () => {
-    try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      
-      // Title
-      pdf.setFontSize(22);
-      pdf.setTextColor(185, 28, 28); // red-700
-      pdf.text('INDIA POST REVENUE TARGET REPORT', pageWidth / 2, 20, { align: 'center' });
-      
-      pdf.setFontSize(10);
-      pdf.setTextColor(100);
-      pdf.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, 28, { align: 'center' });
-
-      let currentY = 40;
-
-      // SECTION 1: Division Summary
-      pdf.setFontSize(14);
-      pdf.setTextColor(30, 41, 59);
-      pdf.text('1. DIVISION OVERALL SUMMARY (FY 2026-27)', 14, currentY);
-      pdf.setFontSize(10);
-      pdf.text('Values in ₹ Crores', pageWidth - 14, currentY, { align: 'right' });
-      
-      const divHeaders = [['Sub-Division', 'Parcel', 'Mail Ops', 'IR & GB', 'CCS', 'Total']];
-      const divDataRows = divisionData.rows.map(r => [r.name, formatVal(r.Parcel/100, 4), formatVal(r.MailOps/100, 4), formatVal(r.IRGB/100, 4), formatVal(r.CCS/100, 4), formatVal(r.total/100, 4)]);
-      divDataRows.push(['GRAND TOTAL', formatVal(divisionData.grand.Parcel/100, 4), formatVal(divisionData.grand.MailOps/100, 4), formatVal(divisionData.grand.IRGB/100, 4), formatVal(divisionData.grand.CCS/100, 4), formatVal(divisionData.grand.total/100, 4)]);
-
-      (pdf as any).autoTable({
-        startY: currentY + 5,
-        head: divHeaders,
-        body: divDataRows,
-        theme: 'striped',
-        headStyles: { fillColor: [15, 23, 42] }, // slate-900
-        styles: { fontSize: 8 },
-        footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold' }
-      });
-
-      currentY = (pdf as any).lastAutoTable.finalY + 10;
-      
-      // Division Vertical Targets
-      pdf.setFontSize(12);
-      pdf.text('Division Vertical-wise Target Analysis (Crores)', 14, currentY);
-      
-      const divVertHeaders = [['Vertical', 'Target 25-26', 'Achiev 25-26', 'Target 26-27', '% Increase']];
-      const pastEntriesForPDF = Object.entries(PAST_PERFORMANCE_DATA).filter(([key]) => {
-        const hasRealData = Object.keys(PAST_PERFORMANCE_DATA).length > 1;
-        return hasRealData ? key !== "SAMPLE SUB-DIVISION" : true;
-      });
-
-      const divVertDataRows = ['Parcel', 'MailOps', 'IRGB', 'CCS'].map(vertical => {
-        const pastTarget = pastEntriesForPDF.reduce((acc, [_, sub]) => acc + (sub[vertical]?.target || 0), 0);
-        const pastAchiev = pastEntriesForPDF.reduce((acc, [_, sub]) => acc + (sub[vertical]?.achievement || 0), 0);
-        const currentTarget = (divisionData.grand as any)[vertical];
-        const increase = pastTarget > 0 ? ((currentTarget - pastTarget) / pastTarget * 100) : 0;
-        return [
-          vertical === 'MailOps' ? 'Mail Ops' : vertical === 'IRGB' ? 'IR & GB' : vertical,
-          formatVal(pastTarget/100, 4),
-          formatVal(pastAchiev/100, 4),
-          formatVal(currentTarget/100, 4),
-          `${formatVal(increase, 2)}%`
-        ];
-      });
-
-      (pdf as any).autoTable({
-        startY: currentY + 5,
-        head: divVertHeaders,
-        body: divVertDataRows,
-        theme: 'grid',
-        headStyles: { fillColor: [15, 23, 42] },
-        styles: { fontSize: 8 }
-      });
-
-      currentY = (pdf as any).lastAutoTable.finalY + 15;
-
-      // SECTION 2: Sub-Division Detail
-      if (currentY > 240) { pdf.addPage(); currentY = 20; }
-      pdf.setFontSize(14);
-      pdf.text(`2. SUB-DIVISION ANALYSIS: ${currentSubDiv.toUpperCase()}`, 14, currentY);
-
-      // Office Distribution
-      const subHeaders = [['Office Category', 'Parcel', 'Mail Ops', 'IR & GB', 'CCS', 'Total']];
-      const subDataRows = categories.map(cat => {
-        const d = currentData[cat];
-        const total = d.Parcel + d.MailOps + d.IRGB + d.CCS;
-        return [cat, formatVal(d.Parcel, 3), formatVal(d.MailOps, 3), formatVal(d.IRGB, 3), formatVal(d.CCS, 3), formatVal(total, 3)];
-      });
-      subDataRows.push(['TOTAL', formatVal(colTotals.Parcel, 3), formatVal(colTotals.MailOps, 3), formatVal(colTotals.IRGB, 3), formatVal(colTotals.CCS, 3), formatVal(colTotals.Grand, 3)]);
-
-      (pdf as any).autoTable({
-        startY: currentY + 5,
-        head: subHeaders,
-        body: subDataRows,
-        theme: 'grid',
-        headStyles: { fillColor: [185, 28, 28] }, // red-700
-        styles: { fontSize: 8 }
-      });
-
-      currentY = (pdf as any).lastAutoTable.finalY + 15;
-
-      // Vertical Target Analysis
-      if (currentY > 240) { pdf.addPage(); currentY = 20; }
-      pdf.setFontSize(12);
-      pdf.text(`Vertical Growth Analysis (Comparison with FY 2025-26)`, 14, currentY);
-
-      const subDivPast = getPastPerformanceData(currentSubDiv) || {};
-      const vertHeaders = [['Vertical', 'Target 25-26', 'Achiev 25-26', 'Target 26-27', '% Increase']];
-      const vertDataRows = [
-        { key: 'Parcel', label: 'Parcel' },
-        { key: 'MailOps', label: 'Mail Operations' },
-        { key: 'IRGB', label: 'IR & GB' },
-        { key: 'CCS', label: 'CCS' }
-      ].map(row => {
-        const past = subDivPast[row.key] || { target: 0, achievement: 0 };
-        const currentTarget = (colTotals as any)[row.key];
-        const increase = past.target > 0 ? ((currentTarget - past.target) / past.target * 100) : 0;
-        return [row.label, formatVal(past.target, 3), formatVal(past.achievement, 3), formatVal(currentTarget, 3), `${formatVal(increase, 2)}%`];
-      });
-
-      (pdf as any).autoTable({
-        startY: currentY + 5,
-        head: vertHeaders,
-        body: vertDataRows,
-        theme: 'plain',
-        headStyles: { fillColor: [248, 250, 252], textColor: [15, 23, 42], fontStyle: 'bold' },
-        styles: { fontSize: 8 }
-      });
-
-      currentY = (pdf as any).lastAutoTable.finalY + 15;
-
-      // SECTION 3: Monthly Distribution
-      if (currentY > 200) { pdf.addPage(); currentY = 20; }
-      pdf.setFontSize(14);
-      pdf.text('3. MONTHLY REVENUE TARGETS (DIVISION LEVEL)', 14, currentY);
-      pdf.setFontSize(10);
-      pdf.text('Values in ₹ Crores', pageWidth - 45, currentY, { align: 'right' });
-
-      const monthHeaders = [['Month', 'Parcel', 'Mail Ops', 'IR & GB', 'CCS', 'POSB', 'PLI', 'Total']];
-      const monthDataRows = monthlyData.rows.map(r => [
-        r.month, 
-        formatVal(r.Parcel/100, 4), 
-        formatVal(r.MailOps/100, 4), 
-        formatVal(r.IRGB/100, 4), 
-        formatVal(r.CCS/100, 4), 
-        formatVal(r.POSB/100, 3), 
-        formatVal(r.PLI/100, 3), 
-        formatVal(r.total/100, 4)
-      ]);
-
-      (pdf as any).autoTable({
-        startY: currentY + 5,
-        head: monthHeaders,
-        body: monthDataRows,
-        theme: 'striped',
-        headStyles: { fillColor: [51, 65, 85] }, // slate-700
-        styles: { fontSize: 7 }
-      });
-
-      pdf.save(`IndiaPost-Comprehensive-Report.pdf`);
-    } catch (err) {
-      console.error('Failed to generate PDF:', err);
-      alert('Error generating consolidated PDF report.');
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans">
       <div className="max-w-5xl mx-auto mb-6 print:hidden flex flex-wrap justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-slate-200 gap-4">
-        <div className="flex items-center gap-6">
-          <div className="flex bg-slate-100 p-1 rounded-xl">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4">
+          <div className="flex flex-wrap bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
             <button 
               onClick={() => setView('subdiv')}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${view === 'subdiv' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest transition ${view === 'subdiv' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
-              Sub-Division Review
+              Sub-Division
             </button>
             <button 
               onClick={() => setView('division')}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${view === 'division' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest transition ${view === 'division' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
-              Division Summary
+              Summary
             </button>
             <button 
               onClick={() => setView('monthly')}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${view === 'monthly' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest transition ${view === 'monthly' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
-              Monthly Targets
+              Monthly
+            </button>
+            <button 
+              onClick={() => setView('target-details')}
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest transition ${view === 'target-details' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Details
             </button>
           </div>
 
           {(view === 'subdiv' || (view === 'monthly' && monthlyLevel === 'subdiv')) && (
-            <div className="flex items-center gap-3">
-              <label className="font-bold text-slate-500 uppercase text-[10px] tracking-widest">Select Sub-Division:</label>
-              <div className="relative min-w-[200px]">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+              <label className="font-bold text-slate-500 uppercase text-[9px] sm:text-[10px] tracking-widest">Select Sub-Division:</label>
+              <div className="relative w-full sm:min-w-[200px]">
                 <select 
                   className="w-full appearance-none bg-slate-50 border border-slate-300 text-slate-800 py-2.5 pl-4 pr-10 rounded-lg font-bold focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer"
                   value={currentSubDiv}
@@ -638,47 +575,35 @@ export default function App() {
           )}
         </div>
         
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button 
             onClick={fetchAndSync}
             disabled={isSyncing}
-            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow transition flex items-center gap-2 disabled:opacity-50"
+            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow transition flex items-center gap-2 disabled:opacity-50 text-sm"
           >
-            <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} /> {isSyncing ? 'Syncing...' : 'Sync Data'}
-          </button>
-          <button 
-            onClick={() => window.print()}
-            className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow transition flex items-center gap-2"
-          >
-            <Printer size={18} /> Print Slide
-          </button>
-          <button 
-            onClick={handleDownloadPDF}
-            className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow transition flex items-center gap-2"
-          >
-            <Download size={18} /> PDF
+            <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} /> {isSyncing ? 'Sync Data' : 'Sync Data'}
           </button>
           <button 
             onClick={handleDownloadExcel}
-            className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg shadow transition flex items-center gap-2"
+            className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg shadow transition flex items-center gap-2 text-sm"
           >
             <FileSpreadsheet size={18} /> Excel
           </button>
         </div>
       </div>
 
-      <div id="report-container" className="max-w-5xl mx-auto bg-white p-8 md:p-12 rounded-2xl shadow-xl border border-slate-200 print:shadow-none print:p-0 print:border-none">
+      <div id="report-container" className="max-w-5xl mx-auto bg-white p-4 md:p-12 rounded-2xl shadow-xl border border-slate-200 print:shadow-none print:p-0 print:border-none">
         
         {view === 'subdiv' ? (
           <div>
-            <div className="mb-10 border-b-4 border-red-600 pb-6 flex flex-col md:flex-row justify-between items-end gap-2">
+            <div className="mb-6 md:mb-10 border-b-4 border-red-600 pb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
               <div>
-                <h2 className="text-4xl font-black text-red-600 uppercase tracking-tight leading-none mb-2">Revenue Target</h2>
-                <p className="text-2xl text-slate-900 font-bold uppercase tracking-wide">Sub-Division: {currentSubDiv}</p>
+                <h2 className="text-2xl md:text-4xl font-black text-red-600 uppercase tracking-tight leading-tight mb-1">Revenue Target</h2>
+                <p className="text-lg md:text-2xl text-slate-900 font-bold uppercase tracking-wide">Sub-Division: {currentSubDiv}</p>
               </div>
-              <div className="text-right">
-                 <div className="bg-red-600 text-white px-4 py-1.5 rounded-md text-xs font-black uppercase mb-1">Fiscal Year 2026-27</div>
-                 <div className="text-emerald-600 font-black text-sm uppercase tracking-widest">₹ In Lakhs</div>
+              <div className="flex flex-row md:flex-col justify-between w-full md:w-auto items-center md:items-end gap-2">
+                 <div className="bg-red-600 text-white px-3 py-1 rounded-md text-[10px] md:text-xs font-black uppercase">FY 2026-27</div>
+                 <div className="text-emerald-600 font-black text-xs md:text-sm uppercase tracking-widest">₹ In Lakhs</div>
               </div>
             </div>
 
@@ -880,15 +805,15 @@ export default function App() {
             )}
           </div>
         ) : view === 'division' ? (
-          <div>
-            <div className="mb-10 border-b-4 border-red-600 pb-6 flex flex-col md:flex-row justify-between items-end gap-2">
+          <div className="space-y-8 md:space-y-12">
+            <div className="mb-6 md:mb-10 border-b-4 border-red-600 pb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
               <div>
-                <h2 className="text-4xl font-black text-red-600 uppercase tracking-tight leading-none mb-2">Division Revenue Summary</h2>
-                <p className="text-2xl text-slate-900 font-bold uppercase tracking-wide">Comprehensive Target View</p>
+                <h2 className="text-2xl md:text-4xl font-black text-red-600 uppercase tracking-tight leading-tight mb-1">Division Summary</h2>
+                <p className="text-lg md:text-2xl text-slate-900 font-bold uppercase tracking-wide">Comprehensive Target View</p>
               </div>
-              <div className="text-right">
-                 <div className="bg-red-600 text-white px-4 py-1.5 rounded-md text-xs font-black uppercase mb-1">Fiscal Year 2026-27</div>
-                 <div className="text-emerald-600 font-black text-sm uppercase tracking-widest">₹ In Crores</div>
+              <div className="flex flex-row md:flex-col justify-between w-full md:w-auto items-center md:items-end gap-2">
+                 <div className="bg-red-600 text-white px-3 py-1 rounded-md text-[10px] md:text-xs font-black uppercase">Entire Division</div>
+                 <div className="text-emerald-600 font-black text-xs md:text-sm uppercase tracking-widest">₹ In Crores</div>
               </div>
             </div>
 
@@ -1014,16 +939,260 @@ export default function App() {
                </div>
             </div>
           </div>
+        ) : view === 'target-details' ? (
+          <div>
+            <div className="mb-6 md:mb-10 border-b-4 border-red-600 pb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+              <div>
+                <h2 className="text-2xl md:text-4xl font-black text-red-600 uppercase tracking-tight leading-tight mb-1">Target Details</h2>
+                <p className="text-lg md:text-2xl text-slate-900 font-bold uppercase tracking-wide">Office-wise Vertical Targets</p>
+              </div>
+              <div className="flex flex-row md:flex-col justify-between w-full md:w-auto items-center md:items-end gap-2">
+                <div className="bg-red-600 text-white px-3 py-1 rounded-md text-[10px] md:text-xs font-black uppercase">FY 2026-27</div>
+                <div className="text-emerald-600 font-black text-xs md:text-sm uppercase tracking-widest">₹ In Rupees</div>
+              </div>
+            </div>
+
+            {!selectedVertical ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                {[
+                  { id: 'Parcel', label: 'Parcels', icon: '📦', color: 'bg-blue-600', count: officeWiseData.Parcel.length },
+                  { id: 'MailOps', label: 'Mails', icon: '✉️', color: 'bg-red-600', count: officeWiseData.MailOps.length },
+                  { id: 'IRGB', label: 'IR & GB', icon: '🌐', color: 'bg-emerald-600', count: officeWiseData.IRGB.length },
+                  { id: 'CCS', label: 'CCS', icon: '🏪', color: 'bg-amber-600', count: officeWiseData.CCS.length }
+                ].map((v) => (
+                  <button
+                    key={v.id}
+                    onClick={() => setSelectedVertical(v.id)}
+                    className="group relative overflow-hidden bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200 hover:border-slate-300 transition-all text-left flex flex-col h-40 sm:h-48 justify-between"
+                  >
+                    <div className={`${v.color} w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl shadow-lg group-hover:scale-110 transition-transform`}>
+                      {v.icon}
+                    </div>
+                    <div>
+                      <h4 className="text-lg sm:text-xl font-black text-slate-800 uppercase tracking-tight">{v.label}</h4>
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-widest mb-1">{v.count} Offices </p>
+                      <div className="w-8 h-1 bg-slate-200 group-hover:w-16 group-hover:bg-red-600 transition-all duration-300"></div>
+                    </div>
+                    <div className="absolute -right-4 -bottom-4 text-8xl opacity-5 group-hover:opacity-10 transition-opacity">
+                      {v.icon}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => setSelectedVertical(null)}
+                      className="p-2 hover:bg-slate-200 rounded-lg transition"
+                    >
+                      <LayoutDashboard size={20} className="text-slate-600" />
+                    </button>
+                    <div>
+                      <h3 className="font-black text-slate-800 text-lg uppercase flex items-center gap-2">
+                        {selectedVertical === 'Parcel' ? 'Parcels' : selectedVertical === 'MailOps' ? 'Mails' : selectedVertical} Office Targets
+                      </h3>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Showing all tracked offices for this vertical</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                    <div className="relative">
+                      <input 
+                        type="text"
+                        placeholder="Search Sub-Division..."
+                        className="bg-white border border-slate-300 rounded-lg px-4 py-2 pl-10 text-xs focus:ring-2 focus:ring-red-500 focus:outline-none min-w-[180px] shadow-sm"
+                        value={subDivSearch}
+                        onChange={(e) => setSubDivSearch(e.target.value)}
+                      />
+                      <Search className="absolute left-3 top-2.5 text-slate-400" size={14} />
+                    </div>
+                    <button 
+                      onClick={() => {
+                        const data = officeWiseData[selectedVertical as keyof typeof officeWiseData]
+                          .sort((a, b) => (Number(a.sl) || 9999) - (Number(b.sl) || 9999))
+                          .map(o => {
+                            const basic = {
+                              'Sl No': o.sl,
+                              'Name of Office': o.name,
+                              'Office ID': o.id,
+                              'Office Type': o.type,
+                              'Sub-Division': o.subDiv,
+                            };
+                            
+                            if (selectedVertical === 'Parcel') {
+                              return {
+                                'Sl No': o.sl,
+                                'Office Name': o.name,
+                                'Office ID': o.id,
+                                'Office Type': o.type,
+                                'Name of the Sub-Division': o.subDiv,
+                                'Indiapost Parcel Retail': formatRupeeStr(o.retail || 0),
+                                'Indiapost Parcel Contractual': formatRupeeStr(o.contractual || 0),
+                                'Speed Post Parcel': formatRupeeStr(o.speedPost || 0),
+                                'No of BOs': o.noOfBOs || 0,
+                                'Branch Office IPP Revenue Target (Rs.1000/- per BO)': formatRupeeStr(o.boIPP || 0),
+                                'Branch Office SPP Revenue Target (Rs.1000/- per BO)': formatRupeeStr(o.boSPP || 0),
+                                'Total': formatRupeeStr(o.target)
+                              };
+                            }
+                            
+                            if (selectedVertical === 'CCS') {
+                              return {
+                                'Sl No': o.sl,
+                                'Office Name': o.name,
+                                'Office ID': o.id,
+                                'Type': o.type,
+                                'Name of the Sub-Division': o.subDiv,
+                                'Aadhaar: Annual Txn Target FY 27': o.aadhaarTxn || 0,
+                                'Aadhaar: Proposed Revenue @ 61.5 (₹)': formatRupeeStr(o.aadhaarRev || 0),
+                                'POPSK: Annual Txn Target FY 27': o.popskTxn || 0,
+                                'POPSK: Revenue Target (388/-) (₹)': formatRupeeStr(o.popskRev || 0),
+                                'Retail Post: Amount (₹)': formatRupeeStr(o.retail || 0),
+                                'Total Target (₹)': formatRupeeStr(o.target)
+                              };
+                            }
+                            
+                            return {
+                              ...basic,
+                              'Annual Target (₹)': formatRupeeStr(o.target)
+                            };
+                          });
+                        const ws = XLSX.utils.json_to_sheet(data);
+                        const wb = XLSX.utils.book_new();
+                        const label = selectedVertical === 'Parcel' ? 'Parcels' : selectedVertical === 'MailOps' ? 'Mails' : selectedVertical;
+                        XLSX.utils.book_append_sheet(wb, ws, `${label} Details`);
+                        XLSX.writeFile(wb, `${label}-Office-Wise-Targets.xlsx`);
+                      }}
+                      className="px-4 py-2 bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center gap-2"
+                    >
+                      <FileSpreadsheet size={16} /> Export Detailed Sheet
+                    </button>
+                    <button 
+                      onClick={() => setSelectedVertical(null)}
+                      className="px-4 py-2 bg-slate-200 text-slate-700 font-bold rounded-lg text-xs"
+                    >
+                      Back to Verticals
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-300 shadow-sm relative max-h-[600px]">
+                  <table className="w-full border-collapse">
+                    <thead className="sticky top-0 z-10 shadow-md">
+                      {selectedVertical === 'CCS' ? (
+                        <>
+                          <tr className="bg-amber-900 text-white text-[9px] uppercase tracking-tighter">
+                            <th rowSpan={2} className="p-2 border-r border-amber-800 w-12">Sl No</th>
+                            <th rowSpan={2} className="p-2 border-r border-amber-800 text-left sticky left-0 bg-amber-900 z-20 min-w-[180px]">Office Name</th>
+                            <th rowSpan={2} className="p-2 border-r border-amber-800">Office ID</th>
+                            <th rowSpan={2} className="p-2 border-r border-amber-800">Type</th>
+                            <th rowSpan={2} className="p-2 border-r border-amber-800">Name of the Sub-Division</th>
+                            <th colSpan={2} className="p-2 border-b border-amber-800 text-center bg-amber-800">Aadhaar Revenue Target (₹)</th>
+                            <th colSpan={2} className="p-2 border-b border-amber-800 text-center bg-amber-800">POPSK Revenue Target (₹)</th>
+                            <th className="p-2 border-b border-amber-800 text-center bg-amber-800">Retail Post (₹)</th>
+                            <th rowSpan={2} className="p-2 text-right">Total Target (₹)</th>
+                          </tr>
+                          <tr className="bg-amber-800 text-white text-[8px] font-bold leading-tight">
+                            <th className="p-1.5 border-r border-amber-700 text-center">Annual Txn Target FY 27</th>
+                            <th className="p-1.5 border-r border-amber-700 text-center">Revenue @ 61.5</th>
+                            <th className="p-1.5 border-r border-amber-700 text-center">Annual Txn Target FY 27</th>
+                            <th className="p-1.5 border-r border-amber-700 text-center">Revenue (388/-)</th>
+                            <th className="p-1.5 border-r border-amber-700 text-center">Amount</th>
+                          </tr>
+                        </>
+                      ) : selectedVertical === 'Parcel' ? (
+                        <>
+                          <tr className="bg-blue-900 text-white text-[9px] uppercase tracking-tighter">
+                            <th rowSpan={2} className="p-2 border-r border-blue-800 w-12">Sl No</th>
+                            <th rowSpan={2} className="p-2 border-r border-blue-800 text-left sticky left-0 bg-blue-900 z-20 min-w-[180px]">Office Name</th>
+                            <th rowSpan={2} className="p-2 border-r border-blue-800">Office ID</th>
+                            <th rowSpan={2} className="p-2 border-r border-blue-800">Type</th>
+                            <th rowSpan={2} className="p-2 border-r border-blue-800">Name of the Sub-Division</th>
+                            <th className="p-2 border-b border-blue-800 text-center bg-blue-800">Retail</th>
+                            <th className="p-2 border-b border-blue-800 text-center bg-blue-800">Contractual</th>
+                            <th className="p-2 border-b border-blue-800 text-center bg-blue-800">Speed Post</th>
+                            <th rowSpan={2} className="p-2 border-r border-blue-800 text-center bg-blue-800 px-2 min-w-[50px]">No of BOs</th>
+                            <th colSpan={2} className="p-2 border-b border-blue-800 text-center bg-blue-800">Branch Office Revenue Target (₹)</th>
+                            <th rowSpan={2} className="p-2 text-right">Total (₹)</th>
+                          </tr>
+                          <tr className="bg-blue-800 text-white text-[8px] font-bold leading-tight">
+                            <th className="p-1.5 border-r border-blue-700 text-center min-w-[80px]">Indiapost Retail</th>
+                            <th className="p-1.5 border-r border-blue-700 text-center min-w-[100px]">Indiapost Contractual</th>
+                            <th className="p-1.5 border-r border-blue-700 text-center min-w-[80px]">Speed Post Parcel</th>
+                            <th className="p-1.5 border-r border-blue-700 text-center">IPP Target</th>
+                            <th className="p-1.5 border-r border-blue-700 text-center">SPP Target</th>
+                          </tr>
+                        </>
+                      ) : (
+                        <tr className={`${selectedVertical === 'MailOps' ? 'bg-rose-900' : selectedVertical === 'IRGB' ? 'bg-teal-900' : 'bg-slate-900'} text-white`}>
+                          <th className="p-4 text-center font-bold uppercase text-[10px] w-16">Sl No</th>
+                          <th className="p-4 text-left font-bold uppercase tracking-wider sticky left-0 bg-inherit shadow-sm text-xs">Name of Office</th>
+                          <th className="p-4 text-center font-bold uppercase text-[10px]">Office ID</th>
+                          <th className="p-4 text-center font-bold uppercase text-[10px]">Office Type</th>
+                          <th className="p-4 text-center font-bold uppercase text-xs">Sub-Division</th>
+                          <th className="p-4 text-right font-bold uppercase text-xs">Annual Target (Rupees)</th>
+                        </tr>
+                      )}
+                    </thead>
+                    <tbody className="text-[11px] bg-white">
+                      {officeWiseData[selectedVertical as keyof typeof officeWiseData]
+                        .filter(o => {
+                          if (!subDivSearch) return true;
+                          return (o.subDiv || "").toLowerCase().includes(subDivSearch.toLowerCase());
+                        })
+                        .sort((a, b) => {
+                          const slA = Number(a.sl) || 9999;
+                          const slB = Number(b.sl) || 9999;
+                          return slA - slB;
+                        })
+                        .map((office, idx) => (
+                          <tr key={`${office.subDiv}-${office.name}-${idx}`} className={idx % 2 === 0 ? "bg-white border-b border-slate-100" : "bg-slate-50 border-b border-slate-100 hover:bg-amber-50/50 transition-colors"}>
+                            <td className={`${(selectedVertical === 'CCS' || selectedVertical === 'Parcel') ? 'p-2' : 'p-4'} text-center border-r border-slate-100 text-slate-400 font-mono`}>{office.sl}</td>
+                            <td className={`${(selectedVertical === 'CCS' || selectedVertical === 'Parcel') ? 'p-2' : 'p-4'} font-black border-r border-slate-100 uppercase sticky left-0 bg-inherit shadow-sm min-w-[180px] sm:min-w-[250px]`}>{office.name}</td>
+                            <td className={`${(selectedVertical === 'CCS' || selectedVertical === 'Parcel') ? 'p-2' : 'p-4'} text-center border-r border-slate-100 font-mono text-slate-500`}>{office.id}</td>
+                            <td className={`${(selectedVertical === 'CCS' || selectedVertical === 'Parcel') ? 'p-2' : 'p-4'} text-center border-r border-slate-100 italic text-slate-500 uppercase`}>{office.type}</td>
+                            <td className={`${(selectedVertical === 'CCS' || selectedVertical === 'Parcel') ? 'p-2' : 'p-4'} text-center border-r border-slate-100 text-slate-600 font-bold tracking-tight`}>{office.subDiv}</td>
+                             {selectedVertical === 'CCS' ? (
+                              <>
+                                <td className="p-2 text-center border-r border-amber-50 font-mono text-slate-500">{office.aadhaarTxn || 0}</td>
+                                <td className="p-2 text-right border-r border-amber-50 font-mono text-slate-600 bg-amber-50/20">₹{formatRupeeStr(office.aadhaarRev || 0)}</td>
+                                <td className="p-2 text-center border-r border-amber-50 font-mono text-slate-500">{office.popskTxn || 0}</td>
+                                <td className="p-2 text-right border-r border-amber-50 font-mono text-slate-600 bg-amber-50/20">₹{formatRupeeStr(office.popskRev || 0)}</td>
+                                <td className="p-2 text-right border-r border-amber-50 font-mono text-slate-600">₹{formatRupeeStr(office.retail || 0)}</td>
+                                <td className="p-2 text-right font-mono font-black text-amber-900 bg-amber-100/50">₹{formatRupeeStr(office.target)}</td>
+                              </>
+                            ) : selectedVertical === 'Parcel' ? (
+                              <>
+                                <td className="p-2 text-right border-r border-blue-50 font-mono text-slate-600">₹{formatRupeeStr(office.retail || 0)}</td>
+                                <td className="p-2 text-right border-r border-blue-50 font-mono text-slate-600">₹{formatRupeeStr(office.contractual || 0)}</td>
+                                <td className="p-2 text-right border-r border-blue-50 font-mono text-slate-600">₹{formatRupeeStr(office.speedPost || 0)}</td>
+                                <td className="p-2 text-center border-r border-blue-50 font-mono text-slate-500">{office.noOfBOs || 0}</td>
+                                <td className="p-2 text-right border-r border-blue-50 font-mono text-slate-600 bg-blue-50/20">₹{formatRupeeStr(office.boIPP || 0)}</td>
+                                <td className="p-2 text-right border-r border-blue-50 font-mono text-slate-600 bg-blue-50/20">₹{formatRupeeStr(office.boSPP || 0)}</td>
+                                <td className="p-2 text-right font-mono font-black text-blue-900 bg-blue-100/50">₹{formatRupeeStr(office.target)}</td>
+                              </>
+                            ) : (
+                              <td className={`p-4 text-right font-mono font-black ${selectedVertical === 'MailOps' ? 'text-rose-900 bg-rose-50/50' : selectedVertical === 'IRGB' ? 'text-teal-900 bg-teal-50/50' : 'text-slate-900 bg-slate-50/50'}`}>₹{formatRupeeStr(office.target)}</td>
+                            )}
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <div>
-            <div className="mb-10 border-b-4 border-red-600 pb-6 flex flex-col md:flex-row justify-between items-end gap-2">
+            <div className="mb-6 md:mb-10 border-b-4 border-red-600 pb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
               <div className="flex-1">
-                <h2 className="text-4xl font-black text-red-600 uppercase tracking-tight leading-none mb-2">Monthly Targets Vertical-wise</h2>
-                <div className="flex items-center gap-4">
-                  <p className="text-2xl text-slate-900 font-bold uppercase tracking-wide">
+                <h2 className="text-2xl md:text-4xl font-black text-red-600 uppercase tracking-tight leading-tight mb-1">Monthly Targets</h2>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                  <p className="text-lg md:text-2xl text-slate-900 font-bold uppercase tracking-wide">
                     Level: {monthlyLevel === 'division' ? 'Entire Division' : `Sub-Division: ${currentSubDiv}`}
                   </p>
-                  <div className="flex bg-slate-100 p-1 rounded-lg print:hidden">
+                  <div className="flex bg-slate-100 p-1 rounded-lg print:hidden self-start">
                     <button 
                       onClick={() => setMonthlyLevel('division')}
                       className={`px-3 py-1 rounded text-[10px] font-black uppercase ${monthlyLevel === 'division' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400'}`}
@@ -1108,7 +1277,7 @@ export default function App() {
           </div>
         )}
 
-        <div className="mt-20 flex justify-between items-center text-[9px] text-slate-400 border-t border-slate-100 pt-4 font-bold tracking-widest uppercase">
+        <div className="mt-20 flex flex-col sm:flex-row justify-between items-center text-[9px] text-slate-400 border-t border-slate-100 pt-4 font-bold tracking-widest uppercase gap-2">
            <span>Internal Revenue Monitoring System v2.1</span>
            <span>Dashboard Generated: {new Date().toLocaleDateString()}</span>
         </div>
