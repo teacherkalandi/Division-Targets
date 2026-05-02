@@ -115,6 +115,10 @@ export default function App() {
     return isNaN(num) ? 0 : num;
   };
 
+  const formatVal = (val: number, precision: number = 2) => {
+    return val.toFixed(precision);
+  };
+
   const categorizeOffice = (officeId: string, officeName: string, typeStr: string) => {
     const id = officeId ? officeId.toString().trim() : "";
     const name = officeName ? officeName.toString().toUpperCase() : "";
@@ -323,43 +327,66 @@ export default function App() {
     // SHEET 1: Division Summary
     const divRows = divisionData.rows.map(row => ({
       'Sub-Division': row.name,
-      'Parcel': row.Parcel,
-      'Mail Ops': row.MailOps,
-      'IR & GB': row.IRGB,
-      'CCS': row.CCS,
-      'Total': row.total
+      'Parcel': formatVal(row.Parcel/100, 4),
+      'Mail Ops': formatVal(row.MailOps/100, 4),
+      'IR & GB': formatVal(row.IRGB/100, 4),
+      'CCS': formatVal(row.CCS/100, 4),
+      'Total': formatVal(row.total/100, 4)
     }));
     divRows.push({
       'Sub-Division': 'GRAND TOTAL',
-      'Parcel': divisionData.grand.Parcel,
-      'Mail Ops': divisionData.grand.MailOps,
-      'IR & GB': divisionData.grand.IRGB,
-      'CCS': divisionData.grand.CCS,
-      'Total': divisionData.grand.total
+      'Parcel': formatVal(divisionData.grand.Parcel/100, 4),
+      'Mail Ops': formatVal(divisionData.grand.MailOps/100, 4),
+      'IR & GB': formatVal(divisionData.grand.IRGB/100, 4),
+      'CCS': formatVal(divisionData.grand.CCS/100, 4),
+      'Total': formatVal(divisionData.grand.total/100, 4)
     });
     const wsDiv = XLSX.utils.json_to_sheet(divRows);
     XLSX.utils.book_append_sheet(wb, wsDiv, "Division Summary");
 
-    // SHEET 2: Sub-Division Detail (Current Selection)
+    // SHEET 2: Division Vertical Targets
+    const pastEntries = Object.entries(PAST_PERFORMANCE_DATA).filter(([key]) => {
+      const hasRealData = Object.keys(PAST_PERFORMANCE_DATA).length > 1;
+      return hasRealData ? key !== "SAMPLE SUB-DIVISION" : true;
+    });
+
+    const divVerticalData = ['Parcel', 'MailOps', 'IRGB', 'CCS'].map(vertical => {
+      const pastTarget = pastEntries.reduce((acc, [_, sub]) => acc + (sub[vertical]?.target || 0), 0);
+      const pastAchiev = pastEntries.reduce((acc, [_, sub]) => acc + (sub[vertical]?.achievement || 0), 0);
+      const currentTarget = (divisionData.grand as any)[vertical];
+      const increase = pastTarget > 0 ? ((currentTarget - pastTarget) / pastTarget * 100) : 0;
+      
+      return {
+        'Vertical': vertical === 'MailOps' ? 'Mail Operations' : vertical === 'IRGB' ? 'IR & GB' : vertical,
+        'Annual Target 25-26': formatVal(pastTarget/100, 4),
+        'Achievement 25-26': formatVal(pastAchiev/100, 4),
+        'Annual Target 26-27': formatVal(currentTarget/100, 4),
+        '% Increase': `${increase.toFixed(2)}%`
+      };
+    });
+    const wsDivVert = XLSX.utils.json_to_sheet(divVerticalData);
+    XLSX.utils.book_append_sheet(wb, wsDivVert, "Division Vertical Targets");
+
+    // SHEET 3: Sub-Division Detail (Current Selection)
     if (currentData && colTotals) {
       const categoryData = categories.map(cat => {
         const rowData = currentData[cat];
         return {
           'Office Type': cat,
-          'Parcel': rowData.Parcel,
-          'Mail Ops': rowData.MailOps,
-          'IR & GB': rowData.IRGB,
-          'CCS': rowData.CCS,
-          'Total': rowData.Parcel + rowData.MailOps + rowData.IRGB + rowData.CCS
+          'Parcel': formatVal(rowData.Parcel, 3),
+          'Mail Ops': formatVal(rowData.MailOps, 3),
+          'IR & GB': formatVal(rowData.IRGB, 3),
+          'CCS': formatVal(rowData.CCS, 3),
+          'Total': formatVal(rowData.Parcel + rowData.MailOps + rowData.IRGB + rowData.CCS, 3)
         };
       });
       categoryData.push({
         'Office Type': 'GRAND TOTAL',
-        'Parcel': colTotals.Parcel,
-        'Mail Ops': colTotals.MailOps,
-        'IR & GB': colTotals.IRGB,
-        'CCS': colTotals.CCS,
-        'Total': colTotals.Grand
+        'Parcel': formatVal(colTotals.Parcel, 3),
+        'Mail Ops': formatVal(colTotals.MailOps, 3),
+        'IR & GB': formatVal(colTotals.IRGB, 3),
+        'CCS': formatVal(colTotals.CCS, 3),
+        'Total': formatVal(colTotals.Grand, 3)
       });
       const wsSub = XLSX.utils.json_to_sheet(categoryData);
       XLSX.utils.book_append_sheet(wb, wsSub, `${currentSubDiv.substring(0, 20)} Details`);
@@ -376,10 +403,10 @@ export default function App() {
         const increase = past.target > 0 ? ((currentTarget - past.target) / past.target * 100) : 0;
         return {
           'Vertical': row.label,
-          'Annual Target 25-26': past.target,
-          'Achievement 25-26': past.achievement,
-          'Annual Target 26-27': currentTarget,
-          '% Increase': `${increase.toFixed(2)}%`
+          'Annual Target 25-26': formatVal(past.target, 3),
+          'Achievement 25-26': formatVal(past.achievement, 3),
+          'Annual Target 26-27': formatVal(currentTarget, 3),
+          '% Increase': `${formatVal(increase, 2)}%`
         };
       });
       const wsVert = XLSX.utils.json_to_sheet(verticalData);
@@ -389,13 +416,13 @@ export default function App() {
     // SHEET 3: Monthly Targets (Division Level)
     const monthlyRows = monthlyData.rows.map(row => ({
       'Month': row.month,
-      'Parcel': row.Parcel,
-      'Mail Ops': row.MailOps,
-      'IR & GB': row.IRGB,
-      'CCS': row.CCS,
-      'POSB': monthlyLevel === 'division' ? row.POSB : 0,
-      'PLI': monthlyLevel === 'division' ? row.PLI : 0,
-      'Total': row.total
+      'Parcel': formatVal(row.Parcel, 3),
+      'Mail Ops': formatVal(row.MailOps, 3),
+      'IR & GB': formatVal(row.IRGB, 3),
+      'CCS': formatVal(row.CCS, 3),
+      'POSB': formatVal(row.POSB, 2),
+      'PLI': formatVal(row.PLI, 2),
+      'Total': formatVal(row.total, 3)
     }));
     const wsMonth = XLSX.utils.json_to_sheet(monthlyRows);
     XLSX.utils.book_append_sheet(wb, wsMonth, "Monthly Targets");
@@ -423,10 +450,12 @@ export default function App() {
       pdf.setFontSize(14);
       pdf.setTextColor(30, 41, 59);
       pdf.text('1. DIVISION OVERALL SUMMARY (FY 2026-27)', 14, currentY);
+      pdf.setFontSize(10);
+      pdf.text('Values in ₹ Crores', pageWidth - 14, currentY, { align: 'right' });
       
       const divHeaders = [['Sub-Division', 'Parcel', 'Mail Ops', 'IR & GB', 'CCS', 'Total']];
-      const divDataRows = divisionData.rows.map(r => [r.name, r.Parcel.toFixed(3), r.MailOps.toFixed(3), r.IRGB.toFixed(3), r.CCS.toFixed(3), r.total.toFixed(3)]);
-      divDataRows.push(['GRAND TOTAL', divisionData.grand.Parcel.toFixed(3), divisionData.grand.MailOps.toFixed(3), divisionData.grand.IRGB.toFixed(3), divisionData.grand.CCS.toFixed(3), divisionData.grand.total.toFixed(3)]);
+      const divDataRows = divisionData.rows.map(r => [r.name, formatVal(r.Parcel/100, 4), formatVal(r.MailOps/100, 4), formatVal(r.IRGB/100, 4), formatVal(r.CCS/100, 4), formatVal(r.total/100, 4)]);
+      divDataRows.push(['GRAND TOTAL', formatVal(divisionData.grand.Parcel/100, 4), formatVal(divisionData.grand.MailOps/100, 4), formatVal(divisionData.grand.IRGB/100, 4), formatVal(divisionData.grand.CCS/100, 4), formatVal(divisionData.grand.total/100, 4)]);
 
       (pdf as any).autoTable({
         startY: currentY + 5,
@@ -436,6 +465,41 @@ export default function App() {
         headStyles: { fillColor: [15, 23, 42] }, // slate-900
         styles: { fontSize: 8 },
         footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold' }
+      });
+
+      currentY = (pdf as any).lastAutoTable.finalY + 10;
+      
+      // Division Vertical Targets
+      pdf.setFontSize(12);
+      pdf.text('Division Vertical-wise Target Analysis (Crores)', 14, currentY);
+      
+      const divVertHeaders = [['Vertical', 'Target 25-26', 'Achiev 25-26', 'Target 26-27', '% Increase']];
+      const pastEntriesForPDF = Object.entries(PAST_PERFORMANCE_DATA).filter(([key]) => {
+        const hasRealData = Object.keys(PAST_PERFORMANCE_DATA).length > 1;
+        return hasRealData ? key !== "SAMPLE SUB-DIVISION" : true;
+      });
+
+      const divVertDataRows = ['Parcel', 'MailOps', 'IRGB', 'CCS'].map(vertical => {
+        const pastTarget = pastEntriesForPDF.reduce((acc, [_, sub]) => acc + (sub[vertical]?.target || 0), 0);
+        const pastAchiev = pastEntriesForPDF.reduce((acc, [_, sub]) => acc + (sub[vertical]?.achievement || 0), 0);
+        const currentTarget = (divisionData.grand as any)[vertical];
+        const increase = pastTarget > 0 ? ((currentTarget - pastTarget) / pastTarget * 100) : 0;
+        return [
+          vertical === 'MailOps' ? 'Mail Ops' : vertical === 'IRGB' ? 'IR & GB' : vertical,
+          formatVal(pastTarget/100, 4),
+          formatVal(pastAchiev/100, 4),
+          formatVal(currentTarget/100, 4),
+          `${formatVal(increase, 2)}%`
+        ];
+      });
+
+      (pdf as any).autoTable({
+        startY: currentY + 5,
+        head: divVertHeaders,
+        body: divVertDataRows,
+        theme: 'grid',
+        headStyles: { fillColor: [15, 23, 42] },
+        styles: { fontSize: 8 }
       });
 
       currentY = (pdf as any).lastAutoTable.finalY + 15;
@@ -450,9 +514,9 @@ export default function App() {
       const subDataRows = categories.map(cat => {
         const d = currentData[cat];
         const total = d.Parcel + d.MailOps + d.IRGB + d.CCS;
-        return [cat, d.Parcel.toFixed(3), d.MailOps.toFixed(3), d.IRGB.toFixed(3), d.CCS.toFixed(3), total.toFixed(3)];
+        return [cat, formatVal(d.Parcel, 3), formatVal(d.MailOps, 3), formatVal(d.IRGB, 3), formatVal(d.CCS, 3), formatVal(total, 3)];
       });
-      subDataRows.push(['TOTAL', colTotals.Parcel.toFixed(3), colTotals.MailOps.toFixed(3), colTotals.IRGB.toFixed(3), colTotals.CCS.toFixed(3), colTotals.Grand.toFixed(3)]);
+      subDataRows.push(['TOTAL', formatVal(colTotals.Parcel, 3), formatVal(colTotals.MailOps, 3), formatVal(colTotals.IRGB, 3), formatVal(colTotals.CCS, 3), formatVal(colTotals.Grand, 3)]);
 
       (pdf as any).autoTable({
         startY: currentY + 5,
@@ -481,7 +545,7 @@ export default function App() {
         const past = subDivPast[row.key] || { target: 0, achievement: 0 };
         const currentTarget = (colTotals as any)[row.key];
         const increase = past.target > 0 ? ((currentTarget - past.target) / past.target * 100) : 0;
-        return [row.label, past.target.toFixed(3), past.achievement.toFixed(3), currentTarget.toFixed(3), `${increase.toFixed(2)}%`];
+        return [row.label, formatVal(past.target, 3), formatVal(past.achievement, 3), formatVal(currentTarget, 3), `${formatVal(increase, 2)}%`];
       });
 
       (pdf as any).autoTable({
@@ -499,17 +563,19 @@ export default function App() {
       if (currentY > 200) { pdf.addPage(); currentY = 20; }
       pdf.setFontSize(14);
       pdf.text('3. MONTHLY REVENUE TARGETS (DIVISION LEVEL)', 14, currentY);
+      pdf.setFontSize(10);
+      pdf.text('Values in ₹ Crores', pageWidth - 45, currentY, { align: 'right' });
 
       const monthHeaders = [['Month', 'Parcel', 'Mail Ops', 'IR & GB', 'CCS', 'POSB', 'PLI', 'Total']];
       const monthDataRows = monthlyData.rows.map(r => [
         r.month, 
-        r.Parcel.toFixed(3), 
-        r.MailOps.toFixed(3), 
-        r.IRGB.toFixed(3), 
-        r.CCS.toFixed(3), 
-        r.POSB.toFixed(2), 
-        r.PLI.toFixed(2), 
-        r.total.toFixed(3)
+        formatVal(r.Parcel/100, 4), 
+        formatVal(r.MailOps/100, 4), 
+        formatVal(r.IRGB/100, 4), 
+        formatVal(r.CCS/100, 4), 
+        formatVal(r.POSB/100, 3), 
+        formatVal(r.PLI/100, 3), 
+        formatVal(r.total/100, 4)
       ]);
 
       (pdf as any).autoTable({
@@ -630,20 +696,20 @@ export default function App() {
                           const rowData = currentData[cat];
                           return {
                             'Office Type': cat,
-                            'Parcel': rowData.Parcel.toFixed(2),
-                            'Mail Ops': rowData.MailOps.toFixed(2),
-                            'IR & GB': rowData.IRGB.toFixed(2),
-                            'CCS': rowData.CCS.toFixed(2),
-                            'Total': (rowData.Parcel + rowData.MailOps + rowData.IRGB + rowData.CCS).toFixed(2)
+                            'Parcel': formatVal(rowData.Parcel, 2),
+                            'Mail Ops': formatVal(rowData.MailOps, 2),
+                            'IR & GB': formatVal(rowData.IRGB, 2),
+                            'CCS': formatVal(rowData.CCS, 2),
+                            'Total': formatVal(rowData.Parcel + rowData.MailOps + rowData.IRGB + rowData.CCS, 2)
                           };
                         });
                         categoryData.push({
                           'Office Type': 'GRAND TOTAL',
-                          'Parcel': colTotals.Parcel.toFixed(2),
-                          'Mail Ops': colTotals.MailOps.toFixed(2),
-                          'IR & GB': colTotals.IRGB.toFixed(2),
-                          'CCS': colTotals.CCS.toFixed(2),
-                          'Total': colTotals.Grand.toFixed(2)
+                          'Parcel': formatVal(colTotals.Parcel, 2),
+                          'Mail Ops': formatVal(colTotals.MailOps, 2),
+                          'IR & GB': formatVal(colTotals.IRGB, 2),
+                          'CCS': formatVal(colTotals.CCS, 2),
+                          'Total': formatVal(colTotals.Grand, 2)
                         });
                         const ws = XLSX.utils.json_to_sheet(categoryData);
                         const wb = XLSX.utils.book_new();
@@ -677,21 +743,21 @@ export default function App() {
                                 {cat}
                                 {cat === 'Non Delivery S.O' && <span className="block text-[8px] font-normal text-slate-400 mt-0.5">(Includes Angul Bazar, Dhenkanal College, Jubuli Town)</span>}
                               </td>
-                              <td className="p-4 text-center border-r border-slate-200 font-mono">{currentData[cat].Parcel.toFixed(2)}</td>
-                              <td className="p-4 text-center border-r border-slate-200 font-mono">{currentData[cat].MailOps.toFixed(2)}</td>
-                              <td className="p-4 text-center border-r border-slate-200 font-mono">{currentData[cat].IRGB.toFixed(2)}</td>
-                              <td className="p-4 text-center border-r border-slate-200 font-mono">{currentData[cat].CCS.toFixed(2)}</td>
-                              <td className="p-4 text-center font-black bg-slate-100 text-slate-900 font-mono">{rowTotal.toFixed(2)}</td>
+                              <td className="p-4 text-center border-r border-slate-200 font-mono">{formatVal(currentData[cat].Parcel, 2)}</td>
+                              <td className="p-4 text-center border-r border-slate-200 font-mono">{formatVal(currentData[cat].MailOps, 2)}</td>
+                              <td className="p-4 text-center border-r border-slate-200 font-mono">{formatVal(currentData[cat].IRGB, 2)}</td>
+                              <td className="p-4 text-center border-r border-slate-200 font-mono">{formatVal(currentData[cat].CCS, 2)}</td>
+                              <td className="p-4 text-center font-black bg-slate-100 text-slate-900 font-mono">{formatVal(rowTotal, 2)}</td>
                             </tr>
                           );
                         })}
                         <tr className="bg-amber-50 font-black text-red-700 border-t-2 border-red-200">
                           <td className="p-4 text-center uppercase tracking-widest ">Grand Total</td>
-                          <td className="p-4 text-center font-mono">{colTotals.Parcel.toFixed(2)}</td>
-                          <td className="p-4 text-center font-mono">{colTotals.MailOps.toFixed(2)}</td>
-                          <td className="p-4 text-center font-mono">{colTotals.IRGB.toFixed(2)}</td>
-                          <td className="p-4 text-center font-mono">{colTotals.CCS.toFixed(2)}</td>
-                          <td className="p-4 text-center text-xl font-black font-mono">{colTotals.Grand.toFixed(2)}</td>
+                          <td className="p-4 text-center font-mono">{formatVal(colTotals.Parcel, 2)}</td>
+                          <td className="p-4 text-center font-mono">{formatVal(colTotals.MailOps, 2)}</td>
+                          <td className="p-4 text-center font-mono">{formatVal(colTotals.IRGB, 2)}</td>
+                          <td className="p-4 text-center font-mono">{formatVal(colTotals.CCS, 2)}</td>
+                          <td className="p-4 text-center text-xl font-black font-mono">{formatVal(colTotals.Grand, 2)}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -717,7 +783,7 @@ export default function App() {
                                const past = subDivPast[row.key] || { target: 0, achievement: 0 };
                                const currentTarget = (colTotals as any)[row.key];
                                const increase = past.target > 0 ? ((currentTarget - past.target) / past.target * 100) : 0;
-                               return [row.label, past.target.toFixed(3), past.achievement.toFixed(3), currentTarget.toFixed(3), `${increase.toFixed(2)}%`];
+                               return [row.label, formatVal(past.target, 3), formatVal(past.achievement, 3), formatVal(currentTarget, 3), `${increase.toFixed(2)}%`];
                              })
                            ];
                            const ws = XLSX.utils.aoa_to_sheet(data);
@@ -756,9 +822,9 @@ export default function App() {
                           return (
                             <tr key={row.key} className={idx % 2 === 0 ? "bg-slate-50/50" : "bg-white"}>
                               <td className="p-4 pl-6 text-slate-900 font-bold uppercase border-r border-slate-200">{row.label}</td>
-                              <td className="p-4 text-center font-mono border-r border-slate-200">{past.target.toFixed(3)}</td>
-                              <td className="p-4 text-center font-mono border-r border-slate-200">{past.achievement.toFixed(3)}</td>
-                              <td className="p-4 text-center font-mono font-black border-r border-slate-200 bg-blue-50/30 text-blue-900">{row.val.toFixed(3)}</td>
+                            <td className="p-4 text-center font-mono border-r border-slate-200">{formatVal(past.target, 3)}</td>
+                            <td className="p-4 text-center font-mono border-r border-slate-200">{formatVal(past.achievement, 3)}</td>
+                            <td className="p-4 text-center font-mono font-black border-r border-slate-200 bg-blue-50/30 text-blue-900">{formatVal(row.val, 3)}</td>
                               <td className={`p-4 text-center font-mono font-black ${increase >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                                 {increase >= 0 ? '+' : ''}{increase.toFixed(2)}%
                               </td>
@@ -773,10 +839,10 @@ export default function App() {
                           return (
                             <tr className="bg-slate-100 font-black border-t-2 border-slate-400 text-xs">
                               <td className="p-4 pl-6 text-slate-900 uppercase border-r border-slate-300">Total Year</td>
-                              <td className="p-4 text-center font-mono border-r border-slate-300">{pastTotalTarget.toFixed(3)}</td>
-                              <td className="p-4 text-center font-mono border-r border-slate-300">{pastTotalAchiev.toFixed(3)}</td>
-                              <td className="p-4 text-center font-mono border-r border-slate-300 bg-blue-100 text-blue-950">{colTotals.Grand.toFixed(3)}</td>
-                              <td className="p-4 text-center font-mono text-blue-800">+{totalIncr.toFixed(2)}%</td>
+                              <td className="p-4 text-center font-mono border-r border-slate-300">{formatVal(pastTotalTarget, 3)}</td>
+                              <td className="p-4 text-center font-mono border-r border-slate-300">{formatVal(pastTotalAchiev, 3)}</td>
+                              <td className="p-4 text-center font-mono border-r border-slate-300 bg-blue-100 text-blue-950">{formatVal(colTotals.Grand, 3)}</td>
+                              <td className="p-4 text-center font-mono text-blue-800">+{formatVal(totalIncr, 2)}%</td>
                             </tr>
                           );
                         })()}
@@ -822,7 +888,7 @@ export default function App() {
               </div>
               <div className="text-right">
                  <div className="bg-red-600 text-white px-4 py-1.5 rounded-md text-xs font-black uppercase mb-1">Fiscal Year 2026-27</div>
-                 <div className="text-emerald-600 font-black text-sm uppercase tracking-widest">₹ In Lakhs</div>
+                 <div className="text-emerald-600 font-black text-sm uppercase tracking-widest">₹ In Crores</div>
               </div>
             </div>
 
@@ -842,20 +908,20 @@ export default function App() {
                   {divisionData.rows.map((row, idx) => (
                     <tr key={row.name} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
                       <td className="p-4 font-bold text-slate-700 border-r border-slate-200 uppercase">{row.name}</td>
-                      <td className="p-4 text-center border-r border-slate-200 font-mono">{row.Parcel.toFixed(2)}</td>
-                      <td className="p-4 text-center border-r border-slate-200 font-mono">{row.MailOps.toFixed(2)}</td>
-                      <td className="p-4 text-center border-r border-slate-200 font-mono">{row.IRGB.toFixed(2)}</td>
-                      <td className="p-4 text-center border-r border-slate-200 font-mono">{row.CCS.toFixed(2)}</td>
-                      <td className="p-4 text-center font-black bg-slate-100 text-slate-900 font-mono">{row.total.toFixed(2)}</td>
+                      <td className="p-4 text-center border-r border-slate-200 font-mono">{formatVal(row.Parcel/100, 4)}</td>
+                      <td className="p-4 text-center border-r border-slate-200 font-mono">{formatVal(row.MailOps/100, 4)}</td>
+                      <td className="p-4 text-center border-r border-slate-200 font-mono">{formatVal(row.IRGB/100, 4)}</td>
+                      <td className="p-4 text-center border-r border-slate-200 font-mono">{formatVal(row.CCS/100, 4)}</td>
+                      <td className="p-4 text-center font-black bg-slate-100 text-slate-900 font-mono">{formatVal(row.total/100, 4)}</td>
                     </tr>
                   ))}
                   <tr className="bg-amber-50 font-black text-red-700 border-t-2 border-red-200 text-base">
                     <td className="p-4 text-center uppercase tracking-widest">Grand Total</td>
-                    <td className="p-4 text-center font-mono">{divisionData.grand.Parcel.toFixed(2)}</td>
-                    <td className="p-4 text-center font-mono">{divisionData.grand.MailOps.toFixed(2)}</td>
-                    <td className="p-4 text-center font-mono">{divisionData.grand.IRGB.toFixed(2)}</td>
-                    <td className="p-4 text-center font-mono">{divisionData.grand.CCS.toFixed(2)}</td>
-                    <td className="p-4 text-center text-2xl font-black font-mono">{divisionData.grand.total.toFixed(2)}</td>
+                    <td className="p-4 text-center font-mono">{formatVal(divisionData.grand.Parcel/100, 4)}</td>
+                    <td className="p-4 text-center font-mono">{formatVal(divisionData.grand.MailOps/100, 4)}</td>
+                    <td className="p-4 text-center font-mono">{formatVal(divisionData.grand.IRGB/100, 4)}</td>
+                    <td className="p-4 text-center font-mono">{formatVal(divisionData.grand.CCS/100, 4)}</td>
+                    <td className="p-4 text-center text-2xl font-black font-mono">{formatVal(divisionData.grand.total/100, 4)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -874,9 +940,9 @@ export default function App() {
                     <thead>
                       <tr className="bg-slate-50 border-b-2 border-slate-300">
                         <th className="p-3 text-left font-black text-slate-800 uppercase tracking-tighter border-r border-slate-300 w-1/4">Name of Vertical</th>
-                        <th className="p-3 text-center font-black text-slate-800 uppercase tracking-tighter border-r border-slate-300">Annual Target 2025-26 (₹ in Lakhs)</th>
-                        <th className="p-3 text-center font-black text-slate-800 uppercase tracking-tighter border-r border-slate-300">Achievement 2025-26 (₹ in Lakhs)</th>
-                        <th className="p-3 text-center font-black text-slate-800 uppercase tracking-tighter border-r border-slate-300">Annual Target 2026-27 (₹ in Lakhs)</th>
+                        <th className="p-3 text-center font-black text-slate-800 uppercase tracking-tighter border-r border-slate-300">Annual Target 2025-26 (₹ in Crores)</th>
+                        <th className="p-3 text-center font-black text-slate-800 uppercase tracking-tighter border-r border-slate-300">Achievement 2025-26 (₹ in Crores)</th>
+                        <th className="p-3 text-center font-black text-slate-800 uppercase tracking-tighter border-r border-slate-300">Annual Target 2026-27 (₹ in Crores)</th>
                         <th className="p-3 text-center font-black text-slate-800 uppercase tracking-tighter">% Increase in Target</th>
                       </tr>
                     </thead>
@@ -896,9 +962,9 @@ export default function App() {
                         return (
                           <tr key={vertical} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                             <td className="p-4 pl-6 font-bold text-slate-900 uppercase border-r border-slate-200">{vertical === 'MailOps' ? 'Mail Operations' : vertical === 'IRGB' ? 'IR & GB' : vertical}</td>
-                            <td className="p-4 text-center font-mono border-r border-slate-200">{pastGrandTarget.toFixed(3)}</td>
-                            <td className="p-4 text-center font-mono border-r border-slate-200">{pastGrandAchiev.toFixed(3)}</td>
-                            <td className="p-4 text-center font-mono font-black border-r border-slate-200 bg-blue-50/30 text-blue-900">{currentTarget.toFixed(3)}</td>
+                            <td className="p-4 text-center font-mono border-r border-slate-200">{formatVal(pastGrandTarget/100, 4)}</td>
+                            <td className="p-4 text-center font-mono border-r border-slate-200">{formatVal(pastGrandAchiev/100, 4)}</td>
+                            <td className="p-4 text-center font-mono font-black border-r border-slate-200 bg-blue-50/30 text-blue-900">{formatVal(currentTarget/100, 4)}</td>
                             <td className={`p-4 text-center font-mono font-black ${increase >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
                               {increase >= 0 ? '+' : ''}{increase.toFixed(2)}%
                             </td>
@@ -923,10 +989,10 @@ export default function App() {
                         return (
                           <tr className="bg-slate-100 text-slate-900 font-black border-t-2 border-slate-400">
                             <td className="p-5 pl-6 uppercase tracking-widest border-r border-slate-300">Division Total</td>
-                            <td className="p-5 text-center font-mono border-r border-slate-300">{totalPastTarget.toFixed(3)}</td>
-                            <td className="p-5 text-center font-mono border-r border-slate-300">{totalPastAchiev.toFixed(3)}</td>
-                            <td className="p-5 text-center font-mono border-r border-slate-300 bg-blue-100 text-blue-950">{divisionData.grand.total.toFixed(3)}</td>
-                            <td className="p-5 text-center font-mono text-blue-800">+{totalIncrease.toFixed(2)}%</td>
+                            <td className="p-5 text-center font-mono border-r border-slate-300">{formatVal(totalPastTarget/100, 4)}</td>
+                            <td className="p-5 text-center font-mono border-r border-slate-300">{formatVal(totalPastAchiev/100, 4)}</td>
+                            <td className="p-5 text-center font-mono border-r border-slate-300 bg-blue-100 text-blue-950">{formatVal(divisionData.grand.total/100, 4)}</td>
+                            <td className="p-5 text-center font-mono text-blue-800">+{formatVal(totalIncrease, 2)}%</td>
                           </tr>
                         );
                       })()}
@@ -971,7 +1037,7 @@ export default function App() {
               </div>
               <div className="text-right">
                  <div className="bg-red-600 text-white px-4 py-1.5 rounded-md text-xs font-black uppercase mb-1">Fiscal Year 2026-27</div>
-                 <div className="text-emerald-600 font-black text-sm uppercase tracking-widest">₹ In Lakhs</div>
+                 <div className="text-emerald-600 font-black text-sm uppercase tracking-widest">₹ In {monthlyLevel === 'division' ? 'Crores' : 'Lakhs'}</div>
               </div>
             </div>
 
@@ -994,35 +1060,39 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="text-sm">
-                  {monthlyData.rows.map((row, idx) => (
-                    <tr key={row.month} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                      <td className="p-4 font-bold text-slate-700 border-r border-slate-200 uppercase">{row.month}</td>
-                      <td className="p-4 text-center border-r border-slate-200 font-mono italic">{row.Parcel.toFixed(3)}</td>
-                      <td className="p-4 text-center border-r border-slate-200 font-mono italic">{row.MailOps.toFixed(3)}</td>
-                      <td className="p-4 text-center border-r border-slate-200 font-mono italic">{row.IRGB.toFixed(3)}</td>
-                      <td className="p-4 text-center border-r border-slate-200 font-mono italic">{row.CCS.toFixed(3)}</td>
-                      {monthlyLevel === 'division' && (
-                        <>
-                          <td className="p-4 text-center border-r border-slate-200 font-mono font-bold text-red-600">{row.POSB.toFixed(2)}</td>
-                          <td className="p-4 text-center border-r border-slate-200 font-mono font-bold text-emerald-700">{row.PLI.toFixed(2)}</td>
-                        </>
-                      )}
-                      <td className="p-4 text-center font-black bg-slate-100 text-slate-900 font-mono">{row.total.toFixed(3)}</td>
-                    </tr>
-                  ))}
+                  {monthlyData.rows.map((row, idx) => {
+                    const divisor = monthlyLevel === 'division' ? 100 : 1;
+                    const precision = monthlyLevel === 'division' ? 4 : 3;
+                    return (
+                      <tr key={row.month} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                        <td className="p-4 font-bold text-slate-700 border-r border-slate-200 uppercase">{row.month}</td>
+                        <td className="p-4 text-center border-r border-slate-200 font-mono italic">{formatVal(row.Parcel/divisor, precision)}</td>
+                        <td className="p-4 text-center border-r border-slate-200 font-mono italic">{formatVal(row.MailOps/divisor, precision)}</td>
+                        <td className="p-4 text-center border-r border-slate-200 font-mono italic">{formatVal(row.IRGB/divisor, precision)}</td>
+                        <td className="p-4 text-center border-r border-slate-200 font-mono italic">{formatVal(row.CCS/divisor, precision)}</td>
+                        {monthlyLevel === 'division' && (
+                          <>
+                            <td className="p-4 text-center border-r border-slate-200 font-mono font-bold text-red-600">{formatVal(row.POSB/100, 3)}</td>
+                            <td className="p-4 text-center border-r border-slate-200 font-mono font-bold text-emerald-700">{formatVal(row.PLI/100, 3)}</td>
+                          </>
+                        )}
+                        <td className="p-4 text-center font-black bg-slate-100 text-slate-900 font-mono">{formatVal(row.total/divisor, precision)}</td>
+                      </tr>
+                    );
+                  })}
                   <tr className="bg-amber-50 font-black text-red-700 border-t-2 border-red-200">
                     <td className="p-4 text-center uppercase tracking-widest">Total Year</td>
-                    <td className="p-4 text-center font-mono">{monthlyData.grand.Parcel.toFixed(3)}</td>
-                    <td className="p-4 text-center font-mono">{monthlyData.grand.MailOps.toFixed(3)}</td>
-                    <td className="p-4 text-center font-mono">{monthlyData.grand.IRGB.toFixed(3)}</td>
-                    <td className="p-4 text-center font-mono">{monthlyData.grand.CCS.toFixed(3)}</td>
+                    <td className="p-4 text-center font-mono">{formatVal(monthlyData.grand.Parcel / (monthlyLevel === 'division' ? 100 : 1), (monthlyLevel === 'division' ? 4 : 3))}</td>
+                    <td className="p-4 text-center font-mono">{formatVal(monthlyData.grand.MailOps / (monthlyLevel === 'division' ? 100 : 1), (monthlyLevel === 'division' ? 4 : 3))}</td>
+                    <td className="p-4 text-center font-mono">{formatVal(monthlyData.grand.IRGB / (monthlyLevel === 'division' ? 100 : 1), (monthlyLevel === 'division' ? 4 : 3))}</td>
+                    <td className="p-4 text-center font-mono">{formatVal(monthlyData.grand.CCS / (monthlyLevel === 'division' ? 100 : 1), (monthlyLevel === 'division' ? 4 : 3))}</td>
                     {monthlyLevel === 'division' && (
                       <>
-                        <td className="p-4 text-center font-mono">{monthlyData.grand.POSB.toFixed(2)}</td>
-                        <td className="p-4 text-center font-mono">{monthlyData.grand.PLI.toFixed(2)}</td>
+                        <td className="p-4 text-center font-mono">{formatVal(monthlyData.grand.POSB/100, 3)}</td>
+                        <td className="p-4 text-center font-mono">{formatVal(monthlyData.grand.PLI/100, 3)}</td>
                       </>
                     )}
-                    <td className="p-4 text-center text-xl font-black font-mono">{monthlyData.grand.total.toFixed(3)}</td>
+                    <td className="p-4 text-center text-xl font-black font-mono">{formatVal(monthlyData.grand.total / (monthlyLevel === 'division' ? 100 : 1), (monthlyLevel === 'division' ? 4 : 3))}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1032,7 +1102,7 @@ export default function App() {
               <Info size={16} className="shrink-0" />
               <div>
                 <p>Note: Monthly distribution for Parcel, Mail Ops, IR&GB, and CCS follows the seasonal trend weights derived from the Division Target Slide.</p>
-                <p className="mt-1">POSB and PLI targets are shown as flat monthly averages for the Entire Division view (Values in Lakhs).</p>
+                <p className="mt-1">POSB and PLI targets are shown as flat monthly averages for the Entire Division view (Values in Crores).</p>
               </div>
             </div>
           </div>
