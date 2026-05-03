@@ -331,11 +331,11 @@ export default function App() {
   const colTotals = useMemo(() => {
     if (!currentData) return null;
     const totals = { Parcel: 0, MailOps: 0, IRGB: 0, CCS: 0, Grand: 0 };
-    categories.forEach(cat => {
-      totals.Parcel += currentData[cat].Parcel;
-      totals.MailOps += currentData[cat].MailOps;
-      totals.IRGB += currentData[cat].IRGB;
-      totals.CCS += currentData[cat].CCS;
+    (Object.values(currentData) as RevenueCategories[]).forEach(cat => {
+      totals.Parcel += cat.Parcel;
+      totals.MailOps += cat.MailOps;
+      totals.IRGB += cat.IRGB;
+      totals.CCS += cat.CCS;
     });
     totals.Grand = totals.Parcel + totals.MailOps + totals.IRGB + totals.CCS;
     return totals;
@@ -346,7 +346,7 @@ export default function App() {
     const rows = divs.map(div => {
       const subdivData = processedData[div];
       const totals = { Parcel: 0, MailOps: 0, IRGB: 0, CCS: 0 };
-      Object.values(subdivData).forEach(cat => {
+      (Object.values(subdivData) as RevenueCategories[]).forEach(cat => {
         totals.Parcel += cat.Parcel;
         totals.MailOps += cat.MailOps;
         totals.IRGB += cat.IRGB;
@@ -377,11 +377,11 @@ export default function App() {
     if (monthlyLevel === 'division') {
       annualTotals = divisionData.grand;
     } else if (currentData) {
-      categories.forEach(cat => {
-        annualTotals.Parcel += currentData[cat].Parcel;
-        annualTotals.MailOps += currentData[cat].MailOps;
-        annualTotals.IRGB += currentData[cat].IRGB;
-        annualTotals.CCS += currentData[cat].CCS;
+      (Object.values(currentData) as RevenueCategories[]).forEach(cat => {
+        annualTotals.Parcel += cat.Parcel;
+        annualTotals.MailOps += cat.MailOps;
+        annualTotals.IRGB += cat.IRGB;
+        annualTotals.CCS += cat.CCS;
       });
     }
 
