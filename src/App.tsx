@@ -32,31 +32,31 @@ const PAST_PERFORMANCE_DATA: Record<string, Record<string, { target: number, ach
   "ANGUL EAST": {
     "MailOps": { target: 104.144, achievement: 55.8771657 },
     "IRGB": { target: 11.280, achievement: 1.6322856 },
-    "CCS": { target: 20.34933, achievement: 15.36337 },
-    "Parcel": { target: 62.000, achievement: 22.098344 }
+    "CCS": { target: 27.00, achievement: 20.34933 },
+    "Parcel": { target: 62.00, achievement: 22.098344 }
   },
   "ANGUL WEST": {
     "MailOps": { target: 30.260, achievement: 13.1614527 },
     "IRGB": { target: 6.000, achievement: 0.023006 },
-    "CCS": { target: 5.65220, achievement: 2.66187 },
+    "CCS": { target: 12.00, achievement: 5.65220 },
     "Parcel": { target: 22.900, achievement: 6.0224152 }
   },
   "DHENKANAL": {
     "MailOps": { target: 92.388, achievement: 39.0476529 },
     "IRGB": { target: 9.480, achievement: 0.648666 },
-    "CCS": { target: 19.60720, achievement: 7.26053 },
+    "CCS": { target: 52.00, achievement: 19.60720 },
     "Parcel": { target: 51.500, achievement: 10.9547855 }
   },
   "KAMAKHYA NAGAR": {
     "MailOps": { target: 25.984, achievement: 15.6291891 },
     "IRGB": { target: 6.600, achievement: 0.01905 },
-    "CCS": { target: 2.18765, achievement: 0.47903 },
+    "CCS": { target: 10.00, achievement: 2.18765 },
     "Parcel": { target: 21.500, achievement: 6.5939793 }
   },
   "TALCHER": {
     "MailOps": { target: 63.156, achievement: 36.8288486 },
     "IRGB": { target: 10.440, achievement: 0.6009967 },
-    "CCS": { target: 6.19300, achievement: 1.47473 },
+    "CCS": { target: 26.00, achievement: 6.19300 },
     "Parcel": { target: 43.97570, achievement: 12.3004737 }
   }
 };
